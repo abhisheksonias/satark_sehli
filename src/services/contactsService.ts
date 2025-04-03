@@ -1,20 +1,30 @@
-
 import { supabase } from '@/lib/supabase';
 import { TrustedContact } from '@/lib/supabase';
 
 // Get trusted contacts from Supabase
 export const getTrustedContacts = async (): Promise<Contact[]> => {
   try {
+    console.log('Fetching trusted contacts...');
+    const user = await supabase.auth.getUser();
+    console.log('Current user:', user.data.user?.id);
+    
+    if (!user.data.user) {
+      console.error('No authenticated user found');
+      return [];
+    }
+
     const { data, error } = await supabase
       .from('trusted_contacts')
       .select('*')
+      .eq('user_id', user.data.user.id)
       .order('created_at', { ascending: false });
     
     if (error) {
       console.error('Error fetching trusted contacts:', error);
-      return [];
+      throw error;
     }
     
+    console.log('Fetched contacts:', data);
     return data.map(contact => ({
       id: contact.id,
       name: contact.name,
@@ -29,35 +39,67 @@ export const getTrustedContacts = async (): Promise<Contact[]> => {
 // Add a new trusted contact
 export const addTrustedContact = async (name: string, phone: string): Promise<Contact | null> => {
   try {
+    console.log('Adding new contact:', { name, phone });
     const user = await supabase.auth.getUser();
     const userId = user.data.user?.id;
     
+    console.log('Current user ID:', userId);
+    
     if (!userId) {
       console.error('No authenticated user found');
-      return null;
+      throw new Error('User not authenticated');
+    }
+
+    // First check if contact already exists
+    const { data: existingContact, error: checkError } = await supabase
+      .from('trusted_contacts')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('phone', phone)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 means no rows found
+      console.error('Error checking existing contact:', checkError);
+      throw checkError;
+    }
+
+    if (existingContact) {
+      throw new Error('Contact with this phone number already exists');
     }
     
     const { data, error } = await supabase
       .from('trusted_contacts')
       .insert([
-        { name, phone, user_id: userId }
+        { 
+          name, 
+          phone, 
+          user_id: userId,
+          created_at: new Date().toISOString()
+        }
       ])
-      .select()
+      .select('id, name, phone')
       .single();
     
     if (error) {
       console.error('Error adding trusted contact:', error);
-      return null;
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+      throw error;
     }
     
+    console.log('Successfully added contact:', data);
     return {
       id: data.id,
       name: data.name,
       phone: data.phone
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to add trusted contact:', error);
-    return null;
+    throw new Error(error.message || 'Failed to add contact. Please try again.');
   }
 };
 

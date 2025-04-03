@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,21 +13,28 @@ const TrustedContactsList = () => {
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   // Load contacts from Supabase on component mount
   useEffect(() => {
+    console.log('TrustedContactsList mounted');
     const fetchContacts = async () => {
       try {
+        setIsLoading(true);
+        console.log('Fetching contacts...');
         const loadedContacts = await getTrustedContacts();
+        console.log('Loaded contacts:', loadedContacts);
         setContacts(loadedContacts);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error loading contacts:", error);
         toast({
           title: "Error",
-          description: "Failed to load your trusted contacts.",
+          description: error.message || "Failed to load your trusted contacts.",
           variant: "destructive",
         });
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -36,6 +42,7 @@ const TrustedContactsList = () => {
   }, [toast]);
 
   const handleAddContact = async () => {
+    console.log('Adding contact with:', { name: newName, phone: newPhone });
     if (!newName.trim() || !newPhone.trim()) {
       toast({
         title: "Validation Error",
@@ -45,26 +52,40 @@ const TrustedContactsList = () => {
       return;
     }
 
+    // Validate phone number format
+    const phoneRegex = /^[0-9]{10}$/;
+    if (!phoneRegex.test(newPhone.trim())) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid 10-digit phone number.",
+        variant: "destructive",
+      });
+      return;
+    } 
+
     try {
-      const newContact = await addTrustedContact(newName, newPhone);
-      if (newContact) {
-        setContacts([...contacts, newContact]);
-        setNewName("");
-        setNewPhone("");
-        setDialogOpen(false);
-        
-        toast({
-          title: "Contact Added",
-          description: `${newName} has been added to your trusted contacts.`,
-        });
-      }
-    } catch (error) {
+      setIsLoading(true);
+      const newContact = await addTrustedContact(newName.trim(), newPhone.trim());
+      console.log('New contact response:', newContact);
+      
+      setContacts([...contacts, newContact]);
+      setNewName("");
+      setNewPhone("");
+      setDialogOpen(false);
+      
+      toast({
+        title: "Contact Added",
+        description: `${newName} has been added to your trusted contacts.`,
+      });
+    } catch (error: any) {
       console.error("Error adding contact:", error);
       toast({
         title: "Error",
-        description: "Failed to add contact. Please try again.",
+        description: error.message || "Failed to add contact. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
