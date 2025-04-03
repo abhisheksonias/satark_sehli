@@ -1,8 +1,8 @@
-# Welcome to your Lovable project
+<!-- # Welcome to your Lovable project
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/ca8a9bf6-7ec2-4530-98a5-33c82f8f62ca
+**URL**: https://lovable.dev/projects/ca8a9bf6-7ec2-4530-98a5-33c82f8f62ca -->
 
 ## How can I edit this code?
 
