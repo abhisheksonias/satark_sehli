@@ -1,22 +1,80 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MapPin, Navigation } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { startRouteSharing, stopRouteSharing, getRouteData } from "@/services/locationService";
 
 const RouteSharing = () => {
   const [destination, setDestination] = useState("");
   const [isRouteSharingActive, setIsRouteSharingActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+
+  // Initialize state from localStorage on component mount
+  useEffect(() => {
+    const savedData = getRouteData();
+    if (savedData && savedData.isActive) {
+      setDestination(savedData.destination);
+      setIsRouteSharingActive(true);
+    }
+  }, []);
 
   const handleRouteShare = () => {
-    if (destination.trim()) {
+    if (!destination.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a destination.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      startRouteSharing(destination);
       setIsRouteSharingActive(true);
+      
+      toast({
+        title: "Route Sharing Activated",
+        description: "Your travel route is now being shared with trusted contacts.",
+      });
+    } catch (error) {
+      console.error("Error starting route sharing:", error);
+      toast({
+        title: "Error",
+        description: "Failed to start route sharing. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleStopSharing = () => {
-    setIsRouteSharingActive(false);
+    setIsLoading(true);
+    
+    try {
+      stopRouteSharing();
+      setIsRouteSharingActive(false);
+      
+      toast({
+        title: "Route Sharing Deactivated",
+        description: "Your travel route is no longer being shared.",
+      });
+    } catch (error) {
+      console.error("Error stopping route sharing:", error);
+      toast({
+        title: "Error",
+        description: "Failed to stop route sharing. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -39,12 +97,13 @@ const RouteSharing = () => {
                 placeholder="Enter your destination"
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
+                disabled={isLoading}
               />
             </div>
             <Button 
               className="w-full" 
               onClick={handleRouteShare}
-              disabled={!destination.trim()}
+              disabled={!destination.trim() || isLoading}
             >
               <MapPin className="mr-2 h-4 w-4" />
               Share My Route
@@ -70,6 +129,7 @@ const RouteSharing = () => {
               variant="outline" 
               className="w-full border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600"
               onClick={handleStopSharing}
+              disabled={isLoading}
             >
               Stop Sharing Route
             </Button>

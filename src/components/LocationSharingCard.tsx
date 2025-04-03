@@ -1,15 +1,57 @@
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { MapPin } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { startLocationSharing, stopLocationSharing, getLocationData } from "@/services/locationService";
 
-interface LocationSharingCardProps {
-  isSharing: boolean;
-  onToggle: () => void;
-}
+const LocationSharingCard = () => {
+  const [isSharing, setIsSharing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
-const LocationSharingCard = ({ isSharing, onToggle }: LocationSharingCardProps) => {
+  // Initialize state from localStorage on component mount
+  useEffect(() => {
+    const savedData = getLocationData();
+    if (savedData) {
+      setIsSharing(savedData.isSharing);
+    }
+  }, []);
+
+  const handleToggle = async () => {
+    setIsLoading(true);
+    
+    try {
+      if (!isSharing) {
+        // Start sharing location
+        await startLocationSharing();
+        setIsSharing(true);
+        toast({
+          title: "Location Sharing Activated",
+          description: "Your location is now being shared with trusted contacts.",
+        });
+      } else {
+        // Stop sharing location
+        stopLocationSharing();
+        setIsSharing(false);
+        toast({
+          title: "Location Sharing Deactivated",
+          description: "Your location is no longer being shared.",
+        });
+      }
+    } catch (error) {
+      console.error("Error toggling location sharing:", error);
+      toast({
+        title: "Error",
+        description: "Failed to toggle location sharing. Please check your permissions.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Card className={`mb-6 border-2 ${isSharing ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
       <CardHeader className="pb-2">
@@ -20,8 +62,9 @@ const LocationSharingCard = ({ isSharing, onToggle }: LocationSharingCardProps) 
           </div>
           <Switch 
             checked={isSharing} 
-            onCheckedChange={onToggle} 
+            onCheckedChange={handleToggle} 
             className={isSharing ? "bg-green-500" : ""} 
+            disabled={isLoading}
           />
         </CardTitle>
       </CardHeader>
