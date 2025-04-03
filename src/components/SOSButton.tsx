@@ -18,8 +18,8 @@ const SOSButton = () => {
       // Get current location
       const position = await getCurrentLocation();
       
-      // Get trusted contacts
-      const contacts = getTrustedContacts();
+      // Get trusted contacts - await the Promise
+      const contacts = await getTrustedContacts();
       
       if (contacts.length === 0) {
         toast({

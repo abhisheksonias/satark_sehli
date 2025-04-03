@@ -23,10 +23,18 @@ export const getTrustedContacts = async (): Promise<Contact[]> => {
 
 // Add a new trusted contact
 export const addTrustedContact = async (name: string, phone: string): Promise<Contact | null> => {
+  const user = await supabase.auth.getUser();
+  const userId = user.data.user?.id;
+  
+  if (!userId) {
+    console.error('No authenticated user found');
+    return null;
+  }
+  
   const { data, error } = await supabase
     .from('trusted_contacts')
     .insert([
-      { name, phone, user_id: supabase.auth.getUser().then(u => u.data.user?.id) }
+      { name, phone, user_id: userId }
     ])
     .select()
     .single();
@@ -44,7 +52,7 @@ export const addTrustedContact = async (name: string, phone: string): Promise<Co
 };
 
 // Remove a trusted contact
-export const removeTrustedContact = async (id: number | string): Promise<void> => {
+export const removeTrustedContact = async (id: string | number): Promise<void> => {
   const { error } = await supabase
     .from('trusted_contacts')
     .delete()
@@ -52,6 +60,7 @@ export const removeTrustedContact = async (id: number | string): Promise<void> =
   
   if (error) {
     console.error('Error removing trusted contact:', error);
+    throw error;
   }
 };
 
@@ -67,6 +76,7 @@ export const updateTrustedContact = async (updatedContact: Contact): Promise<voi
   
   if (error) {
     console.error('Error updating trusted contact:', error);
+    throw error;
   }
 };
 

@@ -16,13 +16,26 @@ const TrustedContactsList = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  // Load contacts from localStorage on component mount
+  // Load contacts from Supabase on component mount
   useEffect(() => {
-    const loadedContacts = getTrustedContacts();
-    setContacts(loadedContacts);
-  }, []);
+    const fetchContacts = async () => {
+      try {
+        const loadedContacts = await getTrustedContacts();
+        setContacts(loadedContacts);
+      } catch (error) {
+        console.error("Error loading contacts:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load your trusted contacts.",
+          variant: "destructive",
+        });
+      }
+    };
+    
+    fetchContacts();
+  }, [toast]);
 
-  const handleAddContact = () => {
+  const handleAddContact = async () => {
     if (!newName.trim() || !newPhone.trim()) {
       toast({
         title: "Validation Error",
@@ -33,16 +46,18 @@ const TrustedContactsList = () => {
     }
 
     try {
-      const newContact = addTrustedContact(newName, newPhone);
-      setContacts([...contacts, newContact]);
-      setNewName("");
-      setNewPhone("");
-      setDialogOpen(false);
-      
-      toast({
-        title: "Contact Added",
-        description: `${newName} has been added to your trusted contacts.`,
-      });
+      const newContact = await addTrustedContact(newName, newPhone);
+      if (newContact) {
+        setContacts([...contacts, newContact]);
+        setNewName("");
+        setNewPhone("");
+        setDialogOpen(false);
+        
+        toast({
+          title: "Contact Added",
+          description: `${newName} has been added to your trusted contacts.`,
+        });
+      }
     } catch (error) {
       console.error("Error adding contact:", error);
       toast({
@@ -53,9 +68,9 @@ const TrustedContactsList = () => {
     }
   };
 
-  const handleRemoveContact = (id: number) => {
+  const handleRemoveContact = async (id: string | number) => {
     try {
-      removeTrustedContact(id);
+      await removeTrustedContact(id);
       const updatedContacts = contacts.filter(contact => contact.id !== id);
       setContacts(updatedContacts);
       
