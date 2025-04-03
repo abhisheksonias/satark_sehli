@@ -1,4 +1,3 @@
-
 import { supabase } from '@/lib/supabase';
 
 interface LocationData {
@@ -6,6 +5,8 @@ interface LocationData {
   longitude: number;
   timestamp: number;
   isSharing: boolean;
+  accuracy?: number;
+  speed?: number;
 }
 
 interface RouteData {
@@ -30,6 +31,23 @@ export const getCurrentLocation = (): Promise<GeolocationPosition> => {
   });
 };
 
+// Watch location changes
+export const watchLocation = (
+  onSuccess: (position: GeolocationPosition) => void,
+  onError: (error: GeolocationPositionError) => void
+): number => {
+  return navigator.geolocation.watchPosition(
+    onSuccess,
+    onError,
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+};
+
+// Stop watching location
+export const stopWatchingLocation = (watchId: number): void => {
+  navigator.geolocation.clearWatch(watchId);
+};
+
 // Save location data to Supabase
 export const saveLocationData = async (data: LocationData): Promise<void> => {
   const user = await supabase.auth.getUser();
@@ -47,11 +65,39 @@ export const saveLocationData = async (data: LocationData): Promise<void> => {
       latitude: data.latitude,
       longitude: data.longitude,
       is_sharing: data.isSharing,
-      timestamp: new Date(data.timestamp).toISOString()
+      timestamp: new Date(data.timestamp).toISOString(),
+      accuracy: data.accuracy,
+      speed: data.speed
     });
 
   if (error) {
     console.error("Error saving location data:", error);
+  }
+};
+
+// Save location history
+export const saveLocationHistory = async (data: LocationData): Promise<void> => {
+  const user = await supabase.auth.getUser();
+  const userId = user.data.user?.id;
+
+  if (!userId) {
+    console.error("User not authenticated");
+    return;
+  }
+
+  const { error } = await supabase
+    .from('location_history')
+    .insert({
+      user_id: userId,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      timestamp: new Date(data.timestamp).toISOString(),
+      accuracy: data.accuracy,
+      speed: data.speed
+    });
+
+  if (error) {
+    console.error("Error saving location history:", error);
   }
 };
 
@@ -82,7 +128,9 @@ export const getLocationData = async (): Promise<LocationData | null> => {
     latitude: data.latitude,
     longitude: data.longitude,
     timestamp: new Date(data.timestamp).getTime(),
-    isSharing: data.is_sharing
+    isSharing: data.is_sharing,
+    accuracy: data.accuracy,
+    speed: data.speed
   };
 };
 
@@ -95,8 +143,11 @@ export const startLocationSharing = async (): Promise<LocationData> => {
       longitude: position.coords.longitude,
       timestamp: Date.now(),
       isSharing: true,
+      accuracy: position.coords.accuracy,
+      speed: position.coords.speed || 0
     };
     await saveLocationData(locationData);
+    await saveLocationHistory(locationData);
     return locationData;
   } catch (error) {
     console.error("Error starting location sharing:", error);
