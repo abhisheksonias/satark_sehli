@@ -50,7 +50,7 @@ const Login = () => {
 
   return (
     <Container className="py-8">
-      <Heading className="text-center mb-8">Saheli Safe Journey Share</Heading>
+      <Heading className="text-center mb-8">Satark Saheli</Heading>
       
       <Card className="max-w-md mx-auto">
         <CardHeader>

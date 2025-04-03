@@ -36,7 +36,7 @@ const Index = () => {
   return (
     <Container className="py-8">
       <div className="flex justify-between items-center mb-8">
-        <Heading>Saheli Safe Journey Share</Heading>
+        <Heading>Satark Saheli</Heading>
         <Button variant="outline" size="sm" onClick={handleLogout}>
           <LogOut className="h-4 w-4 mr-2" />
           Logout
