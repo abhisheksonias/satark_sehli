@@ -11,12 +11,20 @@ const LocationSharingCard = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Initialize state from localStorage on component mount
+  // Initialize state from Supabase on component mount
   useEffect(() => {
-    const savedData = getLocationData();
-    if (savedData) {
-      setIsSharing(savedData.isSharing);
-    }
+    const fetchLocationData = async () => {
+      try {
+        const savedData = await getLocationData();
+        if (savedData) {
+          setIsSharing(savedData.isSharing);
+        }
+      } catch (error) {
+        console.error("Error fetching location data:", error);
+      }
+    };
+
+    fetchLocationData();
   }, []);
 
   const handleToggle = async () => {
@@ -33,7 +41,7 @@ const LocationSharingCard = () => {
         });
       } else {
         // Stop sharing location
-        stopLocationSharing();
+        await stopLocationSharing();
         setIsSharing(false);
         toast({
           title: "Location Sharing Deactivated",

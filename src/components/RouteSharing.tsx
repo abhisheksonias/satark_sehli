@@ -13,16 +13,24 @@ const RouteSharing = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Initialize state from localStorage on component mount
+  // Initialize state from Supabase on component mount
   useEffect(() => {
-    const savedData = getRouteData();
-    if (savedData && savedData.isActive) {
-      setDestination(savedData.destination);
-      setIsRouteSharingActive(true);
-    }
+    const fetchRouteData = async () => {
+      try {
+        const savedData = await getRouteData();
+        if (savedData && savedData.isActive) {
+          setDestination(savedData.destination);
+          setIsRouteSharingActive(true);
+        }
+      } catch (error) {
+        console.error("Error fetching route data:", error);
+      }
+    };
+
+    fetchRouteData();
   }, []);
 
-  const handleRouteShare = () => {
+  const handleRouteShare = async () => {
     if (!destination.trim()) {
       toast({
         title: "Validation Error",
@@ -35,7 +43,7 @@ const RouteSharing = () => {
     setIsLoading(true);
     
     try {
-      startRouteSharing(destination);
+      await startRouteSharing(destination);
       setIsRouteSharingActive(true);
       
       toast({
@@ -54,11 +62,11 @@ const RouteSharing = () => {
     }
   };
 
-  const handleStopSharing = () => {
+  const handleStopSharing = async () => {
     setIsLoading(true);
     
     try {
-      stopRouteSharing();
+      await stopRouteSharing();
       setIsRouteSharingActive(false);
       
       toast({

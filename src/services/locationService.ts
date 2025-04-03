@@ -1,5 +1,5 @@
 
-// Location service to handle location sharing functionality
+import { supabase } from '@/lib/supabase';
 
 interface LocationData {
   latitude: number;
@@ -30,15 +30,60 @@ export const getCurrentLocation = (): Promise<GeolocationPosition> => {
   });
 };
 
-// Save location data to localStorage
-export const saveLocationData = (data: LocationData): void => {
-  localStorage.setItem("saheliLocationData", JSON.stringify(data));
+// Save location data to Supabase
+export const saveLocationData = async (data: LocationData): Promise<void> => {
+  const user = await supabase.auth.getUser();
+  const userId = user.data.user?.id;
+
+  if (!userId) {
+    console.error("User not authenticated");
+    return;
+  }
+
+  const { error } = await supabase
+    .from('location_shares')
+    .upsert({
+      user_id: userId,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      is_sharing: data.isSharing,
+      timestamp: new Date(data.timestamp).toISOString()
+    });
+
+  if (error) {
+    console.error("Error saving location data:", error);
+  }
 };
 
-// Get location data from localStorage
-export const getLocationData = (): LocationData | null => {
-  const data = localStorage.getItem("saheliLocationData");
-  return data ? JSON.parse(data) : null;
+// Get location data from Supabase
+export const getLocationData = async (): Promise<LocationData | null> => {
+  const user = await supabase.auth.getUser();
+  const userId = user.data.user?.id;
+
+  if (!userId) {
+    console.error("User not authenticated");
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('location_shares')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+
+  if (error) {
+    console.error("Error getting location data:", error);
+    return null;
+  }
+
+  if (!data) return null;
+
+  return {
+    latitude: data.latitude,
+    longitude: data.longitude,
+    timestamp: new Date(data.timestamp).getTime(),
+    isSharing: data.is_sharing
+  };
 };
 
 // Start location sharing
@@ -51,7 +96,7 @@ export const startLocationSharing = async (): Promise<LocationData> => {
       timestamp: Date.now(),
       isSharing: true,
     };
-    saveLocationData(locationData);
+    await saveLocationData(locationData);
     return locationData;
   } catch (error) {
     console.error("Error starting location sharing:", error);
@@ -60,39 +105,83 @@ export const startLocationSharing = async (): Promise<LocationData> => {
 };
 
 // Stop location sharing
-export const stopLocationSharing = (): void => {
-  const currentData = getLocationData();
+export const stopLocationSharing = async (): Promise<void> => {
+  const currentData = await getLocationData();
   if (currentData) {
-    saveLocationData({ ...currentData, isSharing: false });
+    await saveLocationData({ ...currentData, isSharing: false });
   }
 };
 
-// Save route data to localStorage
-export const saveRouteData = (data: RouteData): void => {
-  localStorage.setItem("saheliRouteData", JSON.stringify(data));
+// Save route data to Supabase
+export const saveRouteData = async (data: RouteData): Promise<void> => {
+  const user = await supabase.auth.getUser();
+  const userId = user.data.user?.id;
+
+  if (!userId) {
+    console.error("User not authenticated");
+    return;
+  }
+
+  const { error } = await supabase
+    .from('route_shares')
+    .upsert({
+      user_id: userId,
+      destination: data.destination,
+      start_time: new Date(data.startTime).toISOString(),
+      is_active: data.isActive
+    });
+
+  if (error) {
+    console.error("Error saving route data:", error);
+  }
 };
 
-// Get route data from localStorage
-export const getRouteData = (): RouteData | null => {
-  const data = localStorage.getItem("saheliRouteData");
-  return data ? JSON.parse(data) : null;
+// Get route data from Supabase
+export const getRouteData = async (): Promise<RouteData | null> => {
+  const user = await supabase.auth.getUser();
+  const userId = user.data.user?.id;
+
+  if (!userId) {
+    console.error("User not authenticated");
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('route_shares')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .single();
+
+  if (error && error.code !== 'PGRST116') { // PGRST116 is the code for "no rows returned"
+    console.error("Error getting route data:", error);
+    return null;
+  }
+
+  if (!data) return null;
+
+  return {
+    destination: data.destination,
+    startTime: new Date(data.start_time).getTime(),
+    isActive: data.is_active
+  };
 };
 
 // Start route sharing
-export const startRouteSharing = (destination: string): RouteData => {
+export const startRouteSharing = async (destination: string): Promise<RouteData> => {
   const routeData: RouteData = {
     destination,
     startTime: Date.now(),
     isActive: true,
   };
-  saveRouteData(routeData);
+  await saveRouteData(routeData);
   return routeData;
 };
 
 // Stop route sharing
-export const stopRouteSharing = (): void => {
-  const currentData = getRouteData();
+export const stopRouteSharing = async (): Promise<void> => {
+  const currentData = await getRouteData();
   if (currentData) {
-    saveRouteData({ ...currentData, isActive: false });
+    await saveRouteData({ ...currentData, isActive: false });
   }
 };
