@@ -1,15 +1,61 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Replace these with your own Supabase credentials
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// Get Supabase credentials from environment variables
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Check if Supabase credentials are provided
+// Debug environment variables
+console.log('Supabase URL:', supabaseUrl);
+console.log('Environment:', import.meta.env.MODE);
+
+// Validate environment variables
 if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing Supabase credentials. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.');
+  throw new Error(
+    'Missing Supabase credentials. Please check your environment variables:\n' +
+    `VITE_SUPABASE_URL: ${supabaseUrl ? 'Set' : 'Missing'}\n` +
+    `VITE_SUPABASE_ANON_KEY: ${supabaseKey ? 'Set' : 'Missing'}\n` +
+    `Current Environment: ${import.meta.env.MODE}\n`
+  );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// Create Supabase client with debug logging
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    storage: {
+      getItem: (key) => {
+        const item = localStorage.getItem(key);
+        console.log('Getting item from storage:', key, item);
+        return item;
+      },
+      setItem: (key, value) => {
+        console.log('Setting item in storage:', key, value);
+        localStorage.setItem(key, value);
+      },
+      removeItem: (key) => {
+        console.log('Removing item from storage:', key);
+        localStorage.removeItem(key);
+      }
+    }
+  },
+  db: {
+    schema: 'public'
+  }
+});
+
+// Add debug logging for auth state changes
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log('Auth state changed:', event, session?.user?.id);
+});
+
+// Add debug logging for database operations
+const originalQuery = supabase.from;
+supabase.from = function(tableName) {
+  console.log('Querying table:', tableName);
+  return originalQuery.call(this, tableName);
+};
 
 // Database types and helper functions
 export type Profile = {
