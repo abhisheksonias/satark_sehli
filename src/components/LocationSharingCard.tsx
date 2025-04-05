@@ -11,7 +11,7 @@ import {
   stopWatchingLocation,
   saveLocationHistory
 } from "@/services/locationService";
-import { sendSOSMessage } from "@/services/smsService";
+// import { sendSOSMessage } from "@/services/smsService";
 import { sendLocationTrackingMessage } from "@/services/smsService";
 
 
@@ -96,9 +96,40 @@ const LocationSharingCard = () => {
           description: "Your location is now being tracked.",
         });
 
+        watchIdRef.current = watchLocation(
+          async (position) => {
+            try {
+              const locationData = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                timestamp: Date.now(),
+                isSharing: true,
+                accuracy: position.coords.accuracy,
+                speed: position.coords.speed || 0
+              };
+              await saveLocationHistory(locationData);
+              setLastUpdate(new Date());
+              setError(null);
+            } catch (error) {
+              console.error("Error updating location:", error);
+              setError("Failed to update location");
+            }
+          },
+          (error) => {
+            console.error("Location error:", error);
+            setError(error.message);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 60000, // 1 minute timeout
+            maximumAge: 0
+          }
+        );
+
+
         // Send WhatsApp message to trusted contacts
         try {
-          const message = `🚨 Location Tracking Started\n\nI have enabled location tracking. You can check my current location here:\nhttps://www.google.com/maps?q=${locationData.latitude},${locationData.longitude}\n\nStay safe!`;
+          // const message = `🚨 Location Tracking Started\n\nI have enabled location tracking. You can check my current location here:\nhttps://www.google.com/maps?q=${locationData.latitude},${locationData.longitude}\n\nStay safe!`;
           await sendLocationTrackingMessage(locationData);
           toast({
             title: "Location Tracking Started",

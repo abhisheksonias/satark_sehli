@@ -139,7 +139,7 @@ export const sendLocationTrackingMessage = async (locationData: {
     }
 
     const locationLink = `https://www.google.com/maps?q=${locationData.latitude},${locationData.longitude}`;
-    const message = `📍 *Location Sharing Enabled*\n\nI’ve started sharing my live location for safety.\n\nTrack here: ${locationLink}\n\nStay connected.`;
+    const message = `📍 *Location Sharing Enabled*\n\nI've started sharing my live location for safety.\n\nTrack here: ${locationLink}\n\nStay connected.`;
 
     for (const contact of contacts) {
       try {
@@ -151,7 +151,8 @@ export const sendLocationTrackingMessage = async (locationData: {
           headers: {
             'Authorization': 'Basic ' + btoa(
               import.meta.env.VITE_TWILIO_ACCOUNT_SID + ':' + 
-              import.meta.env.VITE_TWILIO_AUTH_TOKEN
+              import.meta.env.VITE_TWILIO_AUTH_TOKEN + ':' + 
+              import.meta.env.VITE_TWILIO_WHATSAPP_NUMBER
             ),
             'Content-Type': 'application/x-www-form-urlencoded',
           },
@@ -174,5 +175,76 @@ export const sendLocationTrackingMessage = async (locationData: {
     }
   } catch (error) {
     console.error("Error in sendLocationTrackingMessage:", error);
+  }
+};
+
+export const sendDestinationMessage = async (destination: string) => {
+  const message = `📍 *Destination Alert*\n\nI’m heading to: *${destination}*\nI’ll keep you updated on my journey.`;
+
+  try {
+    // Get current user
+    const user = await supabase.auth.getUser();
+    const userId = user.data.user?.id;
+
+    if (!userId) {
+      console.error("User not authenticated");
+      return;
+    }
+
+    // Get trusted contacts
+    const { data: contacts, error: contactsError } = await supabase
+      .from('trusted_contacts')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (contactsError) {
+      console.error("Error fetching trusted contacts:", contactsError);
+      return;
+    }
+
+    if (!contacts || contacts.length === 0) {
+      console.log("No trusted contacts found");
+      return;
+    }
+
+    for (const contact of contacts) {
+      try {
+        if (!contact.phone) {
+          console.error(`Phone number missing for contact: ${contact.trusted_contact_name}`);
+          continue;
+        }
+
+        const formattedPhone = formatPhoneNumber(contact.phone);
+
+        const response = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + 
+          import.meta.env.VITE_TWILIO_ACCOUNT_SID + '/Messages.json', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Basic ' + btoa(
+              import.meta.env.VITE_TWILIO_ACCOUNT_SID + ':' + 
+              import.meta.env.VITE_TWILIO_AUTH_TOKEN
+            ),
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            From: 'whatsapp:+14155238886', // Twilio sandbox number
+            Body: message,
+            To: formattedPhone
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          console.error(`Failed to send WhatsApp to ${formattedPhone}:`, error);
+        } else {
+          console.log(`Destination message sent to ${contact.trusted_contact_name} (${formattedPhone})`);
+        }
+      } catch (error) {
+        console.error(`Error sending destination message to ${contact.trusted_contact_name}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error("Error in sendDestinationMessage:", error);
+    throw error;
   }
 };

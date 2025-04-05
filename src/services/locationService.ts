@@ -15,7 +15,7 @@ interface RouteData {
   isActive: boolean;
 }
 
-let lastUpdateTime = 0;
+// let lastUpdateTime = 0;
 const UPDATE_INTERVAL = 60000; // 1 minute in milliseconds
 
 // Get current location using browser's geolocation API
@@ -354,20 +354,20 @@ export const shareLocationWithContacts = async (): Promise<void> => {
     return;
   }
 
-  // Create Google Maps link
-  const mapsLink = `https://www.google.com/maps?q=${locationData.latitude},${locationData.longitude}`;
-  
-  // Share location with each contact
-  for (const contact of contacts) {
-    try {
-      const message = `Emergency Alert: I am at ${mapsLink}. Please check on me.`;
-      
-      // Send SMS using Twilio (you'll need to implement this)
-      // await sendSMS(contact.phone_number, message);
-      
-      console.log(`Location shared with ${contact.trusted_contact_name} (${contact.phone_number})`);
-    } catch (error) {
-      console.error(`Error sharing location with ${contact.trusted_contact_name}:`, error);
-    }
+};
+
+// Fetch destination from route_shares table
+export const getDestinationData = async (userId: string): Promise<string | null> => {
+  const { data, error } = await supabase
+    .from('route_shares')
+    .select('destination')
+    .eq('user_id', userId)
+    .single(); // Assuming you want the latest entry
+
+  if (error) {
+    console.error("Error fetching destination data:", error);
+    return null;
   }
+
+  return data?.destination || null;
 };

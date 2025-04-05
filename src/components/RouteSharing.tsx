@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { MapPin, Navigation } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { startRouteSharing, stopRouteSharing, getRouteData } from "@/services/locationService";
+import { sendDestinationMessage } from "@/services/smsService";
 
 const RouteSharing = () => {
   const [destination, setDestination] = useState("");
@@ -45,7 +45,10 @@ const RouteSharing = () => {
     try {
       await startRouteSharing(destination);
       setIsRouteSharingActive(true);
-      
+
+      // Send destination message to trusted contacts
+      await sendDestinationMessage(destination);
+
       toast({
         title: "Route Sharing Activated",
         description: "Your travel route is now being shared with trusted contacts.",
@@ -68,7 +71,7 @@ const RouteSharing = () => {
     try {
       await stopRouteSharing();
       setIsRouteSharingActive(false);
-      
+
       toast({
         title: "Route Sharing Deactivated",
         description: "Your travel route is no longer being shared.",
