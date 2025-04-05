@@ -9,20 +9,19 @@ const SOSButton = () => {
   const { toast } = useToast();
 
   const handleSOS = async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
       await sendSOSMessage();
       toast({
-        title: 'SOS Alert Sent',
-        description: 'Emergency message has been sent to your trusted contacts.',
-        variant: 'default',
+        title: "SOS Sent",
+        description: "Emergency message has been sent to your trusted contacts.",
       });
     } catch (error: any) {
-      console.error('Error sending SOS:', error);
+      console.error("Error sending SOS:", error);
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to send SOS message. Please try again.',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to send SOS message. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -31,14 +30,12 @@ const SOSButton = () => {
 
   return (
     <Button
-      variant="destructive"
-      size="lg"
-      className="w-full flex items-center justify-center gap-2"
       onClick={handleSOS}
       disabled={isLoading}
+      className="w-full bg-red-500 hover:bg-red-600 text-white mb-5"
     >
-      <AlertTriangle className="h-5 w-5" />
-      {isLoading ? 'Sending SOS...' : 'SOS EMERGENCY'}
+      <AlertTriangle className="mr-2 h-4 w-4" />
+      {isLoading ? "Sending SOS..." : "SOS EMERGENCY"}
     </Button>
   );
 };

@@ -15,6 +15,9 @@ interface RouteData {
   isActive: boolean;
 }
 
+let lastUpdateTime = 0;
+const UPDATE_INTERVAL = 60000; // 1 minute in milliseconds
+
 // Get current location using browser's geolocation API
 export const getCurrentLocation = (): Promise<GeolocationPosition> => {
   return new Promise((resolve, reject) => {
@@ -34,12 +37,34 @@ export const getCurrentLocation = (): Promise<GeolocationPosition> => {
 // Watch location changes
 export const watchLocation = (
   onSuccess: (position: GeolocationPosition) => void,
-  onError: (error: GeolocationPositionError) => void
+  onError: (error: GeolocationPositionError) => void,
+  options: PositionOptions = {
+    enableHighAccuracy: true,
+    timeout: 60000,
+    maximumAge: 0
+  }
 ): number => {
+  if (!navigator.geolocation) {
+    onError({
+      code: 0,
+      message: "Geolocation is not supported by this browser",
+      PERMISSION_DENIED: 1,
+      POSITION_UNAVAILABLE: 2,
+      TIMEOUT: 3
+    });
+    return -1;
+  }
+
   return navigator.geolocation.watchPosition(
-    onSuccess,
+    (position) => {
+      const currentTime = Date.now();
+      if (currentTime - lastUpdateTime >= UPDATE_INTERVAL) {
+        lastUpdateTime = currentTime;
+        onSuccess(position);
+      }
+    },
     onError,
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    options
   );
 };
 
@@ -48,7 +73,7 @@ export const stopWatchingLocation = (watchId: number): void => {
   navigator.geolocation.clearWatch(watchId);
 };
 
-// Save location data to Supabase
+// Save location data
 export const saveLocationData = async (data: LocationData): Promise<void> => {
   const user = await supabase.auth.getUser();
   const userId = user.data.user?.id;
@@ -58,6 +83,13 @@ export const saveLocationData = async (data: LocationData): Promise<void> => {
     return;
   }
 
+  console.log('Saving location data:', {
+    userId,
+    latitude: data.latitude,
+    longitude: data.longitude,
+    isSharing: data.isSharing
+  });
+
   const { error } = await supabase
     .from('location_shares')
     .upsert({
@@ -65,13 +97,13 @@ export const saveLocationData = async (data: LocationData): Promise<void> => {
       latitude: data.latitude,
       longitude: data.longitude,
       is_sharing: data.isSharing,
-      timestamp: new Date(data.timestamp).toISOString(),
-      accuracy: data.accuracy,
-      speed: data.speed
+      timestamp: new Date(data.timestamp).toISOString()
     });
 
   if (error) {
     console.error("Error saving location data:", error);
+  } else {
+    console.log('Location data saved successfully');
   }
 };
 
@@ -85,7 +117,14 @@ export const saveLocationHistory = async (data: LocationData): Promise<void> => 
     return;
   }
 
-  const { error } = await supabase
+  console.log('Saving location history:', {
+    userId,
+    latitude: data.latitude,
+    longitude: data.longitude,
+    timestamp: new Date(data.timestamp).toISOString()
+  });
+
+  const { data: savedData, error } = await supabase
     .from('location_history')
     .insert({
       user_id: userId,
@@ -94,10 +133,13 @@ export const saveLocationHistory = async (data: LocationData): Promise<void> => 
       timestamp: new Date(data.timestamp).toISOString(),
       accuracy: data.accuracy,
       speed: data.speed
-    });
+    })
+    .select();
 
   if (error) {
     console.error("Error saving location history:", error);
+  } else {
+    console.log('Location history saved successfully:', savedData);
   }
 };
 
@@ -111,6 +153,8 @@ export const getLocationData = async (): Promise<LocationData | null> => {
     return null;
   }
 
+  console.log('Fetching location data for user:', userId);
+
   const { data, error } = await supabase
     .from('location_shares')
     .select('*')
@@ -122,8 +166,12 @@ export const getLocationData = async (): Promise<LocationData | null> => {
     return null;
   }
 
-  if (!data) return null;
+  if (!data) {
+    console.log('No location data found for user:', userId);
+    return null;
+  }
 
+  console.log('Retrieved location data:', data);
   return {
     latitude: data.latitude,
     longitude: data.longitude,
@@ -234,5 +282,56 @@ export const stopRouteSharing = async (): Promise<void> => {
   const currentData = await getRouteData();
   if (currentData) {
     await saveRouteData({ ...currentData, isActive: false });
+  }
+};
+
+// Share location with trusted contacts
+export const shareLocationWithContacts = async (): Promise<void> => {
+  const user = await supabase.auth.getUser();
+  const userId = user.data.user?.id;
+
+  if (!userId) {
+    console.error("User not authenticated");
+    return;
+  }
+
+  // Get current location
+  const locationData = await getLocationData();
+  if (!locationData) {
+    console.error("No location data found");
+    return;
+  }
+
+  // Get trusted contacts
+  const { data: contacts, error: contactsError } = await supabase
+    .from('trusted_contacts')
+    .select('*')
+    .eq('user_id', userId);
+
+  if (contactsError) {
+    console.error("Error fetching trusted contacts:", contactsError);
+    return;
+  }
+
+  if (!contacts || contacts.length === 0) {
+    console.log("No trusted contacts found");
+    return;
+  }
+
+  // Create Google Maps link
+  const mapsLink = `https://www.google.com/maps?q=${locationData.latitude},${locationData.longitude}`;
+  
+  // Share location with each contact
+  for (const contact of contacts) {
+    try {
+      const message = `Emergency Alert: I am at ${mapsLink}. Please check on me.`;
+      
+      // Send SMS using Twilio (you'll need to implement this)
+      // await sendSMS(contact.phone_number, message);
+      
+      console.log(`Location shared with ${contact.trusted_contact_name} (${contact.phone_number})`);
+    } catch (error) {
+      console.error(`Error sharing location with ${contact.trusted_contact_name}:`, error);
+    }
   }
 };

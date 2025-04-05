@@ -3,6 +3,10 @@ import { getCurrentLocation } from './locationService';
 
 // Format phone number to E.164 format
 const formatPhoneNumber = (phone: string): string => {
+  if (!phone) {
+    throw new Error('Phone number is required');
+  }
+
   // Remove any non-digit characters
   const digits = phone.replace(/\D/g, '');
   
@@ -18,51 +22,39 @@ const formatPhoneNumber = (phone: string): string => {
 // Send SOS message to trusted contacts
 export const sendSOSMessage = async (): Promise<void> => {
   try {
-    // Get current user's trusted contacts
+    // Get current user
     const user = await supabase.auth.getUser();
     const userId = user.data.user?.id;
 
     if (!userId) {
-      throw new Error('User not authenticated');
-    }
-
-    // Get current location directly
-    let locationData;
-    try {
-      const position = await getCurrentLocation();
-      locationData = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude
-      };
-    } catch (error) {
-      console.error('Error getting current location:', error);
-      locationData = null;
+      console.error("User not authenticated");
+      return;
     }
 
     // Get trusted contacts
     const { data: contacts, error: contactsError } = await supabase
       .from('trusted_contacts')
-      .select('phone')
+      .select('*')
       .eq('user_id', userId);
 
     if (contactsError) {
-      throw new Error('Failed to fetch trusted contacts');
+      console.error("Error fetching trusted contacts:", contactsError);
+      return;
     }
 
     if (!contacts || contacts.length === 0) {
-      throw new Error('No trusted contacts found');
+      console.log("No trusted contacts found");
+      return;
     }
 
-    // Prepare message with location
-    const locationLink = locationData 
-      ? `https://www.google.com/maps?q=${locationData.latitude},${locationData.longitude}`
-      : 'Location not available';
-
-    const message = `🚨 EMERGENCY ALERT 🚨\n\nI am in trouble and need immediate help!\n\nMy current location: ${locationLink}\n\nPlease contact emergency services if you cannot reach me.`;
-
-    // Send SMS to each contact individually
+    // Send SOS message to each contact
     for (const contact of contacts) {
       try {
+        if (!contact.phone) {
+          console.error(`Phone number missing for contact: ${contact.trusted_contact_name}`);
+          continue;
+        }
+
         const formattedPhone = formatPhoneNumber(contact.phone);
         
         const response = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + 
@@ -77,7 +69,7 @@ export const sendSOSMessage = async (): Promise<void> => {
           },
           body: new URLSearchParams({
             From: import.meta.env.VITE_TWILIO_PHONE_NUMBER,
-            Body: message,
+            Body: "HELP ME! I am in trouble. Please check on me.",
             To: formattedPhone
           })
         });
@@ -85,13 +77,15 @@ export const sendSOSMessage = async (): Promise<void> => {
         if (!response.ok) {
           const error = await response.json();
           console.error(`Failed to send SMS to ${formattedPhone}:`, error);
+        } else {
+          console.log(`SOS message sent to ${contact.trusted_contact_name} (${formattedPhone})`);
         }
       } catch (error) {
-        console.error(`Error sending SMS to ${contact.phone}:`, error);
+        console.error(`Error sending SOS to ${contact.trusted_contact_name}:`, error);
       }
     }
   } catch (error) {
-    console.error('Error sending SOS message:', error);
+    console.error("Error in sendSOSMessage:", error);
     throw error;
   }
 }; 

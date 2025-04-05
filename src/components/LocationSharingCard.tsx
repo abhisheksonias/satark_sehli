@@ -62,6 +62,11 @@ const LocationSharingCard = () => {
         (error) => {
           console.error("Location error:", error);
           setError(error.message);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 60000, // 1 minute timeout
+          maximumAge: 0
         }
       );
     }
@@ -84,8 +89,8 @@ const LocationSharingCard = () => {
         setIsSharing(true);
         setLastUpdate(new Date(locationData.timestamp));
         toast({
-          title: "Location Sharing Activated",
-          description: "Your location is now being shared with trusted contacts.",
+          title: "Location Tracking Started",
+          description: "Your location is now being tracked.",
         });
       } else {
         // Stop sharing location
@@ -93,16 +98,16 @@ const LocationSharingCard = () => {
         setIsSharing(false);
         setLastUpdate(null);
         toast({
-          title: "Location Sharing Deactivated",
-          description: "Your location is no longer being shared.",
+          title: "Location Tracking Stopped",
+          description: "Your location is no longer being tracked.",
         });
       }
     } catch (error: any) {
-      console.error("Error toggling location sharing:", error);
+      console.error("Error toggling location tracking:", error);
       setError(error.message);
       toast({
         title: "Error",
-        description: "Failed to toggle location sharing. Please check your permissions.",
+        description: "Failed to toggle location tracking. Please check your permissions.",
         variant: "destructive",
       });
     } finally {
@@ -116,7 +121,7 @@ const LocationSharingCard = () => {
         <CardTitle className="flex justify-between items-center">
           <div className="flex items-center">
             <MapPin className={`mr-2 h-5 w-5 ${isSharing ? 'text-green-500' : 'text-gray-500'}`} />
-            Location Sharing
+            Location Tracking
           </div>
           <Switch 
             checked={isSharing} 
@@ -129,13 +134,13 @@ const LocationSharingCard = () => {
       <CardContent>
         <p className="text-sm text-gray-600">
           {isSharing 
-            ? "Your location is currently being shared with your trusted contacts." 
-            : "Toggle to start sharing your location with trusted contacts."}
+            ? "Your location is currently being tracked." 
+            : "Toggle to start tracking your location."}
         </p>
         {isSharing && (
           <div className="mt-2 space-y-2">
             <div className="p-2 bg-green-100 rounded-md text-green-800 text-xs font-medium">
-              Live sharing active • Updates every 5 minutes
+              Live tracking active • Updates every 5 minutes
             </div>
             {lastUpdate && (
               <div className="text-xs text-gray-500">
