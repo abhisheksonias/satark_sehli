@@ -108,3 +108,71 @@ export const sendSOSMessage = async (): Promise<void> => {
     throw error;
   }
 };
+
+
+export const sendLocationTrackingMessage = async (locationData: {
+  latitude: number;
+  longitude: number;
+}) => {
+  try {
+    const user = await supabase.auth.getUser();
+    const userId = user.data.user?.id;
+
+    if (!userId) {
+      console.error("User not authenticated");
+      return;
+    }
+
+    const { data: contacts, error: contactsError } = await supabase
+      .from('trusted_contacts')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (contactsError) {
+      console.error("Error fetching contacts:", contactsError);
+      return;
+    }
+
+    if (!contacts || contacts.length === 0) {
+      console.log("No trusted contacts found");
+      return;
+    }
+
+    const locationLink = `https://www.google.com/maps?q=${locationData.latitude},${locationData.longitude}`;
+    const message = `📍 *Location Sharing Enabled*\n\nI’ve started sharing my live location for safety.\n\nTrack here: ${locationLink}\n\nStay connected.`;
+
+    for (const contact of contacts) {
+      try {
+        const formattedPhone = formatPhoneNumber(contact.phone);
+
+        const response = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + 
+          import.meta.env.VITE_TWILIO_ACCOUNT_SID + '/Messages.json', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Basic ' + btoa(
+              import.meta.env.VITE_TWILIO_ACCOUNT_SID + ':' + 
+              import.meta.env.VITE_TWILIO_AUTH_TOKEN
+            ),
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            From: 'whatsapp:+14155238886',
+            Body: message,
+            To: formattedPhone
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          console.error(`Failed to send location message to ${formattedPhone}:`, error);
+        } else {
+          console.log(`Location tracking message sent to ${formattedPhone}`);
+        }
+      } catch (error) {
+        console.error(`Error sending location tracking message:`, error);
+      }
+    }
+  } catch (error) {
+    console.error("Error in sendLocationTrackingMessage:", error);
+  }
+};

@@ -11,6 +11,9 @@ import {
   stopWatchingLocation,
   saveLocationHistory
 } from "@/services/locationService";
+import { sendSOSMessage } from "@/services/smsService";
+import { sendLocationTrackingMessage } from "@/services/smsService";
+
 
 const LocationSharingCard = () => {
   const [isSharing, setIsSharing] = useState(false);
@@ -92,6 +95,23 @@ const LocationSharingCard = () => {
           title: "Location Tracking Started",
           description: "Your location is now being tracked.",
         });
+
+        // Send WhatsApp message to trusted contacts
+        try {
+          const message = `🚨 Location Tracking Started\n\nI have enabled location tracking. You can check my current location here:\nhttps://www.google.com/maps?q=${locationData.latitude},${locationData.longitude}\n\nStay safe!`;
+          await sendLocationTrackingMessage(locationData);
+          toast({
+            title: "Location Tracking Started",
+            description: "Your trusted contacts have been notified.",
+          });
+        } catch (smsError) {
+          console.error('Error sending WhatsApp message:', smsError);
+          toast({
+            title: "Location Tracking Started",
+            description: "Could not notify contacts via WhatsApp.",
+            variant: "destructive",
+          });
+        }
       } else {
         // Stop sharing location
         await stopLocationSharing();
