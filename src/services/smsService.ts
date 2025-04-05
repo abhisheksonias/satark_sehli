@@ -16,10 +16,9 @@ const formatPhoneNumber = (phone: string): string => {
   }
   
   // Add country code for India
-  return `+91${digits}`;
+  return `whatsapp:+91${digits}`;
 };
 
-// Send SOS message to trusted contacts
 export const sendSOSMessage = async (): Promise<void> => {
   try {
     // Get current user
@@ -29,6 +28,19 @@ export const sendSOSMessage = async (): Promise<void> => {
     if (!userId) {
       console.error("User not authenticated");
       return;
+    }
+
+    // Get current location
+    let locationData;
+    try {
+      const position = await getCurrentLocation();
+      locationData = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude
+      };
+    } catch (error) {
+      console.error('Error getting current location:', error);
+      locationData = null;
     }
 
     // Get trusted contacts
@@ -47,7 +59,14 @@ export const sendSOSMessage = async (): Promise<void> => {
       return;
     }
 
-    // Send SOS message to each contact
+    // Prepare message with location
+    const locationLink = locationData 
+      ? `https://www.google.com/maps?q=${locationData.latitude},${locationData.longitude}`
+      : 'Location not available';
+
+    const message = `🚨 *EMERGENCY ALERT* 🚨\n\nI am in trouble and need immediate help!\n\n*My current location:* ${locationLink}\n\nPlease contact emergency services if you cannot reach me.`;
+
+    // Send WhatsApp message to each contact
     for (const contact of contacts) {
       try {
         if (!contact.phone) {
@@ -68,15 +87,15 @@ export const sendSOSMessage = async (): Promise<void> => {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           body: new URLSearchParams({
-            From: import.meta.env.VITE_TWILIO_PHONE_NUMBER,
-            Body: "HELP ME! I am in trouble. Please check on me.",
+            From: 'whatsapp:+14155238886', // Twilio WhatsApp sandbox number
+            Body: message,
             To: formattedPhone
           })
         });
 
         if (!response.ok) {
           const error = await response.json();
-          console.error(`Failed to send SMS to ${formattedPhone}:`, error);
+          console.error(`Failed to send WhatsApp to ${formattedPhone}:`, error);
         } else {
           console.log(`SOS message sent to ${contact.trusted_contact_name} (${formattedPhone})`);
         }
@@ -88,4 +107,4 @@ export const sendSOSMessage = async (): Promise<void> => {
     console.error("Error in sendSOSMessage:", error);
     throw error;
   }
-}; 
+};

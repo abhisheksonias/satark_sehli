@@ -19,29 +19,63 @@ let lastUpdateTime = 0;
 const UPDATE_INTERVAL = 60000; // 1 minute in milliseconds
 
 // Get current location using browser's geolocation API
-export const getCurrentLocation = (): Promise<GeolocationPosition> => {
+export const getCurrentLocation = async (): Promise<GeolocationPosition> => {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
-      reject(new Error("Geolocation is not supported by your browser"));
+      reject(new Error('Geolocation is not supported by this browser'));
       return;
     }
 
+    const options: PositionOptions = {
+      enableHighAccuracy: true, // Use high accuracy mode
+      timeout: 30000, // Wait up to 30 seconds for better accuracy
+      maximumAge: 0 // Don't use cached position
+    };
+
     navigator.geolocation.getCurrentPosition(
-      (position) => resolve(position),
-      (error) => reject(error),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      (position) => {
+        // Check if accuracy is good enough (less than 50 meters)
+        if (position.coords.accuracy > 50) {
+          console.warn('Location accuracy is low:', position.coords.accuracy, 'meters');
+          // Try to get better accuracy
+          navigator.geolocation.getCurrentPosition(
+            (betterPosition) => {
+              if (betterPosition.coords.accuracy <= 50) {
+                console.log('Better accuracy achieved:', betterPosition.coords.accuracy, 'meters');
+                resolve(betterPosition);
+              } else {
+                console.warn('Still low accuracy:', betterPosition.coords.accuracy, 'meters');
+                resolve(betterPosition);
+              }
+            },
+            (error) => {
+              console.error('Error getting better accuracy:', error);
+              resolve(position); // Return original position if second attempt fails
+            },
+            options
+          );
+        } else {
+          console.log('Good accuracy achieved:', position.coords.accuracy, 'meters');
+          resolve(position);
+        }
+      },
+      (error) => {
+        console.error('Error getting location:', error);
+        reject(error);
+      },
+      options
     );
   });
 };
 
-// Watch location changes
+// Watch location changes with high accuracy
 export const watchLocation = (
   onSuccess: (position: GeolocationPosition) => void,
   onError: (error: GeolocationPositionError) => void,
   options: PositionOptions = {
-    enableHighAccuracy: true,
-    timeout: 60000,
-    maximumAge: 0
+    enableHighAccuracy: true, // Use high accuracy mode
+    timeout: 30000, // 30 seconds timeout
+    maximumAge: 0 // Don't use cached position
   }
 ): number => {
   if (!navigator.geolocation) {
@@ -57,11 +91,13 @@ export const watchLocation = (
 
   return navigator.geolocation.watchPosition(
     (position) => {
-      const currentTime = Date.now();
-      if (currentTime - lastUpdateTime >= UPDATE_INTERVAL) {
-        lastUpdateTime = currentTime;
-        onSuccess(position);
+      // Check if accuracy is good enough (less than 50 meters)
+      if (position.coords.accuracy > 50) {
+        console.warn('Location accuracy is low:', position.coords.accuracy, 'meters');
+      } else {
+        console.log('Good accuracy achieved:', position.coords.accuracy, 'meters');
       }
+      onSuccess(position);
     },
     onError,
     options
